@@ -40,26 +40,26 @@ on:
         description: 'UAT environment url.'
         type: string
         required: true
-        default: '<UAT Environment Url>'
+        default: 'https://orgcf4bd8b1.crm3.dynamics.com/'
 
       # PROD Environment Configuration      
       PRODUCTION_ENVIRONMENT_URL:
         description: 'Production environment url.'
         type: string
         required: true
-        default: '<Production Environment Url>'
+        default: 'https://org14021c04.crm3.dynamics.com/'
        
       CLIENT_ID:
         description: 'The client id'
         type: string
         required: true
-        default: '<ClientID>'
+        default: 'd2fa770c-78cb-4bfe-a63c-eae5961a5632'
 
       TENANT_ID:
         description: 'The tenant id'
         type: string
         required: true
-        default: '<TenantID>'
+        default: '3f1ffa42-f017-454c-8887-88a2dbf95dd5'
 
       DEPLOY_TO_UAT:
         description: 'Deploy to UAT environment'
