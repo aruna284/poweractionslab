@@ -86,7 +86,7 @@ jobs:
         lfs: true
 
     - name: Pack solution
-      uses: microsoft/powerplatform-actions/pack-solution@v24
+      uses: microsoft/powerplatform-actions/pack-solution@v1.9.1
       with:
         solution-folder: ${{ inputs.solution_source_folder}}/${{ inputs.solution_name }}
         solution-file: ${{ inputs.solution_outbound_folder}}/${{ inputs.solution_name }}_managed.zip
@@ -117,7 +117,7 @@ jobs:
         path: ${{ inputs.solution_release_folder}}
 
     - name: Import solution to UAT env
-      uses: microsoft/powerplatform-actions/import-solution@v24
+      uses: microsoft/powerplatform-actions/import-solution@v1.9.1
       with:
         environment-url: ${{inputs.UAT_ENVIRONMENT_URL}}
         app-id: ${{inputs.CLIENT_ID}}
@@ -146,7 +146,7 @@ jobs:
         path: ${{ inputs.solution_release_folder}}
 
     - name: Import solution to prod env
-      uses: microsoft/powerplatform-actions/import-solution@v24
+      uses: microsoft/powerplatform-actions/import-solution@v1.9.1
       with:
         environment-url: ${{inputs.PRODUCTION_ENVIRONMENT_URL}}
         app-id: ${{inputs.CLIENT_ID}}
