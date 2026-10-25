@@ -88,36 +88,6 @@ jobs:
 
  
 
-    - name: Get GitHub OIDC Token
-
-      id: oidc-token
-
-      uses: actions/github-script@v6
-
-      with:
-
-        script: |
-
-          const token = await core.getIDToken('api://AzureADTokenExchange');
-
-          core.setOutput('token', token);
-
- 
-
-    - name: Azure Login using OIDC
-
-      uses: azure/login@v1
-
-      with:
-
-        client-id: ${{env.CLIENT_ID}}
-
-        tenant-id: ${{env.TENANT_ID}}
-
-        allow-no-subscriptions: true
-
- 
-
     - name: actions-install
 
       uses: microsoft/powerplatform-actions/actions-install@v1.10.0
@@ -127,6 +97,8 @@ jobs:
         environment-url: ${{env.ENVIRONMENT_URL}}
 
         app-id: ${{env.CLIENT_ID}}
+
+        client-secret: ${{ secrets.PowerPlatformSPN }}
 
         tenant-id: ${{env.TENANT_ID}}
 
@@ -141,6 +113,8 @@ jobs:
         environment-url: ${{env.ENVIRONMENT_URL}}
 
         app-id: ${{env.CLIENT_ID}}
+
+        client-secret: ${{ secrets.PowerPlatformSPN }}
 
         tenant-id: ${{env.TENANT_ID}}
 
@@ -159,6 +133,8 @@ jobs:
         environment-url: ${{env.ENVIRONMENT_URL}}
 
         app-id: ${{env.CLIENT_ID}}
+
+        client-secret: ${{ secrets.PowerPlatformSPN }}
 
         tenant-id: ${{env.TENANT_ID}}
 
