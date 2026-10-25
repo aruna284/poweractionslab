@@ -1,79 +1,136 @@
 name: release-solution-to-prod
 
-# Reusable workflow
-# Upload the solution to GitHub artifacts and deploy to UAT and PROD environments
+# ==============================================================================
+# WORKFLOW: Release Solution to UAT and Production
+# ==============================================================================
+# PURPOSE:
+#   This workflow is the final stage of the Power Platform ALM pipeline.
+#   It packs exported solutions as managed solutions and deploys them to
+#   UAT and Production environments with optional selective deployment.
+#
+# PIPELINE FLOW:
+#   1. convert-to-managed    → Packs solution from unpacked files to managed ZIP
+#   2. release-to-uat        → Deploys managed solution to UAT (if enabled)
+#   3. release-to-prod       → Deploys managed solution to PROD (if enabled)
+#
+# INPUTS (Workflow Dispatch Parameters):
+#   - solution_name           : Name of the Power Platform solution to release
+#   - DEPLOY_TO_UAT          : Toggle to deploy to UAT environment (default: true)
+#   - DEPLOY_TO_PROD         : Toggle to deploy to PROD environment (default: false)
+#   - UAT_ENVIRONMENT_URL    : URL of the UAT environment
+#   - PRODUCTION_ENVIRONMENT_URL : URL of the Production environment
+#   - CLIENT_ID              : Service Principal Client ID for authentication
+#   - TENANT_ID              : Azure Tenant ID for authentication
+#   - Folder paths           : Internal staging and release directories
+#
+# DEPENDENCIES:
+#   - GitHub Secret: PowerPlatformSPN (Service Principal client secret)
+#   - Microsoft Power Platform CLI (installed by actions-install step)
+#   - Exported solution files in solutions/ directory
+#
+# EXAMPLE USAGE:
+#   gh workflow run release-solution-to-prod.yml \
+#     -f solution_name="ModelDrivenApp" \
+#     -f DEPLOY_TO_UAT=true \
+#     -f DEPLOY_TO_PROD=true
+#
+# ARTIFACTS:
+#   - managedSolutions      : Managed solution ZIP file for deployment
+#
+# ==============================================================================
 
 on:
   workflow_dispatch:
     inputs:
-      # Do Not change these values
-      # Values are set by the caller
-      # caller sample: release-action-call.yml
-
+      # SOLUTION CONFIGURATION
+      # ----------------------
       solution_name:
-        description: 'The solution name.'
+        description: 'The solution name to release (must exist in solutions/ directory)'
         type: string
         default: '<SolutionName>'  
+        required: true
 
+      # FOLDER CONFIGURATION (Do Not change these values)
+      # These are internal staging paths - managed automatically
       solution_shipping_folder:
-        description: 'folder name for staging the exported solution *do not change*'       
+        description: '[INTERNAL] Folder for staging the exported solution'       
         type: string
         default: out/ship/
 
       solution_outbound_folder:
-        description: 'staging the unpacked solution folder before check-in *do not change*'
+        description: '[INTERNAL] Staging folder for unpacked solution before check-in'
         type: string
         default: out/solutions/
 
       solution_source_folder:
-        description: 'folder name to be created and checked in *do not change*'
+        description: '[INTERNAL] Source folder containing unpacked solution files'
         type: string
         default: solutions/
 
       solution_release_folder:
-        description: 'folder where the released binaries are going to be hosted *do not change*'
+        description: '[INTERNAL] Folder where released binaries are hosted'
         type: string
         default: out/release
 
-      # UAT Environment Configuration
+      # ENVIRONMENT URLS
+      # ----------------
       UAT_ENVIRONMENT_URL:
-        description: 'UAT environment url.'
+        description: 'UAT environment URL (e.g., https://orgxxxxxx.crm3.dynamics.com/)'
         type: string
         required: true
         default: 'https://orgcf4bd8b1.crm3.dynamics.com/'
 
-      # PROD Environment Configuration      
       PRODUCTION_ENVIRONMENT_URL:
-        description: 'Production environment url.'
+        description: 'Production environment URL (e.g., https://orgxxxxxx.crm3.dynamics.com/)'
         type: string
         required: true
         default: 'https://org14021c04.crm3.dynamics.com/'
        
+      # SERVICE PRINCIPAL CREDENTIALS
+      # (Stored securely - only app IDs, client secret in GitHub Secret)
+      # ------
       CLIENT_ID:
-        description: 'The client id'
+        description: 'Service Principal Application ID for Power Platform authentication'
         type: string
         required: true
         default: 'd2fa770c-78cb-4bfe-a63c-eae5961a5632'
 
       TENANT_ID:
-        description: 'The tenant id'
+        description: 'Azure Tenant ID where the Service Principal is registered'
         type: string
         required: true
         default: '3f1ffa42-f017-454c-8887-88a2dbf95dd5'
 
+      # DEPLOYMENT TOGGLES
+      # -----------------
       DEPLOY_TO_UAT:
-        description: 'Deploy to UAT environment'
+        description: 'Enable: Deploy managed solution to UAT environment'
         type: boolean
         required: false
         default: true
 
       DEPLOY_TO_PROD:
-        description: 'Deploy to Production environment'
+        description: 'Enable: Deploy managed solution to Production environment'
         type: boolean
         required: false
         default: false
  
 jobs:
+  # ===========================================================================
+  # JOB 1: convert-to-managed
+  # ===========================================================================
+  # DESCRIPTION: Converts unpacked Power Platform solution to managed ZIP format
+  # 
+  # WHAT IT DOES:
+  #   1. Checks out the repository with Git LFS support
+  #   2. Installs Microsoft Power Platform CLI tools
+  #   3. Packs the unpacked solution folder into a managed solution ZIP file
+  #   4. Uploads the managed ZIP to GitHub Artifacts for downstream jobs
+  #
+  # OUTPUT: managedSolutions artifact (ZIP file ready for deployment)
+  #
+  # DURATION: ~1-2 minutes
+  # ===========================================================================
   convert-to-managed:
     runs-on: windows-latest
     # or you can say runs-on: ubuntu-latest
@@ -81,26 +138,50 @@ jobs:
       RUNNER_DEBUG: 1
 
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout repository with LFS
+      uses: actions/checkout@v2
       with:
         lfs: true
 
     - name: Install Power Platform CLI
       uses: microsoft/powerplatform-actions/actions-install@v1.9.1
 
-    - name: Pack solution
+    - name: Pack solution to managed format
       uses: microsoft/powerplatform-actions/pack-solution@v1.9.1
       with:
         solution-folder: ${{ inputs.solution_source_folder}}/${{ inputs.solution_name }}
         solution-file: ${{ inputs.solution_outbound_folder}}/${{ inputs.solution_name }}_managed.zip
         solution-type: Managed
 
-    - name: Upload the ready to ship solution to GH artifact store
+    - name: Upload managed solution to GitHub Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: managedSolutions
         path: ${{ inputs.solution_outbound_folder}}
 
+  # ===========================================================================
+  # JOB 2: release-to-uat
+  # ===========================================================================
+  # DESCRIPTION: Deploys managed solution to UAT environment (conditional)
+  # 
+  # WHAT IT DOES:
+  #   1. Waits for convert-to-managed job to complete
+  #   2. Checks out the repository
+  #   3. Installs Power Platform CLI
+  #   4. Downloads managed solution from artifacts
+  #   5. Authenticates with Service Principal credentials
+  #   6. Imports managed solution to UAT environment
+  #   7. Publishes all customizations
+  #
+  # PREREQUISITES:
+  #   - DEPLOY_TO_UAT input must be true (otherwise job is skipped)
+  #   - Service Principal must be registered in UAT environment
+  #   - GitHub Secret 'PowerPlatformSPN' must be set
+  #
+  # OUTPUT: Managed solution deployed to UAT Dynamics 365 environment
+  #
+  # DURATION: ~2-3 minutes
+  # ===========================================================================
   release-to-uat:
     needs: [ convert-to-managed ]
     runs-on: windows-latest
@@ -109,20 +190,21 @@ jobs:
       RUNNER_DEBUG: 1
 
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout repository with LFS
+      uses: actions/checkout@v2
       with:
         lfs: true
 
     - name: Install Power Platform CLI
       uses: microsoft/powerplatform-actions/actions-install@v1.9.1
 
-    - name: Fetch the ready to ship solution from GH artifact store
+    - name: Download managed solution from artifacts
       uses: actions/download-artifact@v4
       with:
         name: managedSolutions
         path: ${{ inputs.solution_release_folder}}
 
-    - name: Import solution to UAT env
+    - name: Deploy solution to UAT environment
       uses: microsoft/powerplatform-actions/import-solution@v1.9.1
       with:
         environment-url: ${{inputs.UAT_ENVIRONMENT_URL}}
@@ -133,6 +215,35 @@ jobs:
         force-overwrite: true
         publish-changes: true
 
+  # ===========================================================================
+  # JOB 3: release-to-prod
+  # ===========================================================================
+  # DESCRIPTION: Deploys managed solution to PROD environment (conditional)
+  # 
+  # WHAT IT DOES:
+  #   1. Waits for convert-to-managed AND release-to-uat to complete
+  #   2. Checks out the repository
+  #   3. Installs Power Platform CLI
+  #   4. Downloads managed solution from artifacts
+  #   5. Authenticates with Service Principal credentials
+  #   6. Imports managed solution to PROD environment
+  #   7. Publishes all customizations
+  #
+  # PREREQUISITES:
+  #   - DEPLOY_TO_PROD input must be true (otherwise job is skipped)
+  #   - release-to-uat must complete successfully (job dependency)
+  #   - Service Principal must be registered in PROD environment
+  #   - GitHub Secret 'PowerPlatformSPN' must be set
+  #
+  # SAFETY NOTE:
+  #   - Only runs after UAT deployment succeeds
+  #   - Default is DISABLED (set DEPLOY_TO_PROD=true to enable)
+  #   - Always test in UAT first before deploying to PROD
+  #
+  # OUTPUT: Managed solution deployed to PROD Dynamics 365 environment
+  #
+  # DURATION: ~2-3 minutes
+  # ===========================================================================
   release-to-prod:
     needs: [ convert-to-managed, release-to-uat ]
     runs-on: windows-latest
@@ -141,20 +252,21 @@ jobs:
       RUNNER_DEBUG: 1
 
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout repository with LFS
+      uses: actions/checkout@v2
       with:
         lfs: true
 
     - name: Install Power Platform CLI
       uses: microsoft/powerplatform-actions/actions-install@v1.9.1
 
-    - name: Fetch the ready to ship solution from GH artifact store
+    - name: Download managed solution from artifacts
       uses: actions/download-artifact@v4
       with:
         name: managedSolutions
         path: ${{ inputs.solution_release_folder}}
 
-    - name: Import solution to prod env
+    - name: Deploy solution to Production environment
       uses: microsoft/powerplatform-actions/import-solution@v1.9.1
       with:
         environment-url: ${{inputs.PRODUCTION_ENVIRONMENT_URL}}

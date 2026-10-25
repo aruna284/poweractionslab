@@ -1,179 +1,201 @@
-# Export solution from DEV environment
+# ==============================================================================
+# WORKFLOW: Export Solution from DEV Environment
+# ==============================================================================
+# PURPOSE:
+#   This is the FIRST stage of the Power Platform ALM (Application Lifecycle
+#   Management) pipeline. It exports solutions from the DEV environment,
+#   unpacks them for version control, and prepares them for promotion to
+#   UAT and Production environments.
+#
+# PIPELINE FLOW:
+#   1. Authenticate with Service Principal to DEV environment
+#   2. Export solution in BOTH unmanaged and managed formats
+#   3. Unpack the unmanaged solution for version control
+#   4. Create a Git branch with the unpacked solution files
+#   5. Generate a pull request for review before merging to main
+#
+# TYPICAL WORKFLOW:
+#   Step 1 (This Workflow):
+#     - Run "Export Solution from Dev" → Creates branch + PR
+#     - Review PR for changes in solutions/
+#     - Merge PR to main branch
+#   
+#   Step 2 (Release to UAT/PROD):
+#     - Run "release-solution-to-prod" workflow
+#     - Set DEPLOY_TO_UAT=true for UAT testing
+#     - Optionally set DEPLOY_TO_PROD=true for production
+#
+# INPUTS (Workflow Dispatch Parameters):
+#   - solution_name : Name of the Power Platform solution to export
+#                    (must exist in DEV environment)
+#
+# ENVIRONMENT VARIABLES:
+#   - ENVIRONMENT_URL   : DEV environment URL
+#   - CLIENT_ID         : Service Principal Application ID
+#   - TENANT_ID         : Azure Tenant ID
+#   - PowerPlatformSPN  : GitHub Secret with Service Principal client secret
+#
+# OUTPUTS:
+#   - Git branch with unpacked solution files
+#   - Pull request for review
+#   - Solution files in solutions/ directory (after PR merge)
+#
+# EXPECTED CHANGES:
+#   - solutions/{solution_name}/      : Unpacked solution files
+#   - solutions/{solution_name}/Other/Customizations.xml : Solution definition
+#   - All custom components (forms, flows, plugins, etc.)
+#
+# DURATION: ~3-5 minutes per export
+#
+# ==============================================================================
 
+# Export solution from DEV environment
 #  unpack it and prepare, commit and push a git branch with the changes
 
  
-
 on:
-
   workflow_dispatch:
-
     inputs:
-
-      # Change this value
-
+      # SOLUTION SELECTION
+      # ==================
       solution_name:
-
-        description: 'name of the solution to worked on from Power Platform'
-
+        description: 'Name of the solution to export from DEV (must exist in Power Platform DEV environment)'
         required: true
+        default: Model_driven_soln_for_github
 
-        default:  Model_driven_soln_for_github
-
-       #Do Not change these values
-
+      # FOLDER CONFIGURATION (Do Not change these values)
+      # These are internal staging paths managed automatically by the workflow
+      # ============================================================
       solution_exported_folder:
-
-        description: 'folder name for staging the exported solution *do not change*'
-
+        description: '[INTERNAL] Temporary folder for exported ZIP files'
         required: true
-
         default: out/exported/
 
       solution_folder:
-
-        description: 'staging the unpacked solution folder before check-in *do not change*'
-
+        description: '[INTERNAL] Temporary folder for unpacked solution files'
         required: true
-
         default: out/solutions/
 
       solution_target_folder:
+        description: '[INTERNAL] Final folder for committed solution files (checked into Git)'
+        required: true
+        default: solutions/
 
-       description: 'folder name to be created and checked in *do not change*'
-
-       required: true
-
-       default: solutions/
-
+# DEV ENVIRONMENT CONFIGURATION
+# =============================
+# These variables define which Power Platform environment to export from
+# Credentials are secured via GitHub Secrets (PowerPlatformSPN)
 env:
-
-#edit your values here
-
+  # Update this URL to match your DEV Dynamics 365 environment
   ENVIRONMENT_URL: 'https://org7f00f137.crm3.dynamics.com/'
-
+  
+  # Service Principal credentials for authentication
+  # These IDs identify WHICH service principal to authenticate as
   CLIENT_ID: 'd2fa770c-78cb-4bfe-a63c-eae5961a5632'
-
   TENANT_ID: '3f1ffa42-f017-454c-8887-88a2dbf95dd5'
+  # CLIENT_SECRET is retrieved from GitHub Secret: PowerPlatformSPN
 
  
-
 jobs:
-
+  # ===========================================================================
+  # JOB: export-from-dev
+  # ===========================================================================
+  # DESCRIPTION: Exports solution from DEV and prepares for promotion
+  #
+  # WHAT IT DOES:
+  #   1. Checkout repository with Git LFS support
+  #   2. Install Power Platform CLI and authenticate with Service Principal
+  #   3. Export solution in UNMANAGED format (for development/version control)
+  #   4. Export solution in MANAGED format (backup, ready for deployment)
+  #   5. Unpack the unmanaged solution for Git version control
+  #   6. Create a Git branch with the unpacked files
+  #   7. Generate a pull request for code review
+  #
+  # WHY TWO EXPORTS?
+  #   - Unmanaged (.zip): Unpacked for Git version control of all components
+  #   - Managed (.zip): Packaged format ready for immediate promotion
+  #
+  # WHY A PULL REQUEST?
+  #   - Allows team review of all changes before committing to main
+  #   - Maintains audit trail of solution changes
+  #   - Enables approval workflow before production promotion
+  #
+  # OUTPUTS:
+  #   - New Git branch: {solution_name}-{timestamp}
+  #   - GitHub Pull Request with all solution component changes
+  #   - Artifacts: Exported ZIPs in out/exported/
+  #   - Committed files: Unpacked solution in solutions/{solution_name}/
+  #
+  # DURATION: ~3-5 minutes
+  #
+  # NEXT STEPS:
+  #   1. Review the PR changes in GitHub
+  #   2. Approve and merge the PR to main branch
+  #   3. Run "release-solution-to-prod" workflow to deploy
+  # ===========================================================================
   export-from-dev:
-
     runs-on: windows-latest
-
     # or you can say runs-on: ubuntu-latest
-
     permissions:
-
       id-token: write
-
       contents: write
 
     env:
-
       RUNNER_DEBUG: 1
 
  
-
     steps:
-
-    - uses: actions/checkout@v2
-
+    - name: Checkout repository with Git LFS support
+      uses: actions/checkout@v2
       with:
-
         lfs: true
 
  
-
-    - name: actions-install
-
+    - name: Install Power Platform CLI and authenticate
       uses: microsoft/powerplatform-actions/actions-install@v1.9.2
-
       with:
-
         environment-url: ${{env.ENVIRONMENT_URL}}
-
         app-id: ${{env.CLIENT_ID}}
-
         client-secret: ${{ secrets.PowerPlatformSPN }}
-
         tenant-id: ${{env.TENANT_ID}}
 
  
-
-    - name: export-solution action -unmanaged
-
+    - name: Export solution (unmanaged) for version control
       uses: microsoft/powerplatform-actions/export-solution@v1.9.2
-
       with:
-
         environment-url: ${{env.ENVIRONMENT_URL}}
-
         app-id: ${{env.CLIENT_ID}}
-
         client-secret: ${{ secrets.PowerPlatformSPN }}
-
         tenant-id: ${{env.TENANT_ID}}
-
         solution-name: ${{ github.event.inputs.solution_name }}
-
         solution-output-file: ${{ github.event.inputs.solution_exported_folder}}/${{ github.event.inputs.solution_name }}.zip
 
        
-
-    - name: export-solution action -managed
-
+    - name: Export solution (managed) for deployment backup
       uses: microsoft/powerplatform-actions/export-solution@v1.9.2
-
       with:
-
         environment-url: ${{env.ENVIRONMENT_URL}}
-
         app-id: ${{env.CLIENT_ID}}
-
         client-secret: ${{ secrets.PowerPlatformSPN }}
-
         tenant-id: ${{env.TENANT_ID}}
-
         solution-name: ${{ github.event.inputs.solution_name }}
-
         managed: true
-
         solution-output-file: ${{ github.event.inputs.solution_exported_folder}}/${{ github.event.inputs.solution_name }}_managed.zip
 
  
-
-    - name: unpack-solution action
-
+    - name: Unpack solution for version control
       uses: microsoft/powerplatform-actions/unpack-solution@v1.9.2
-
       with:
-
         solution-file: ${{ github.event.inputs.solution_exported_folder}}/${{ github.event.inputs.solution_name }}.zip
-
         solution-folder: ${{ github.event.inputs.solution_folder}}/${{ github.event.inputs.solution_name }}
-
         solution-type: 'Both'
-
         overwrite-files: true
 
  
-
-    - name: branch-solution, prepare it for a PullRequest
-
+    - name: Create pull request with solution changes
       uses: microsoft/powerplatform-actions/branch-solution@v1.9.2
-
       with:
-
         solution-folder: ${{ github.event.inputs.solution_folder}}/${{ github.event.inputs.solution_name }}
-
         solution-target-folder: ${{ github.event.inputs.solution_target_folder}}/${{ github.event.inputs.solution_name }}
-
         repo-token: ${{ secrets.GITHUB_TOKEN }}
-
         allow-empty-commit: true
-
- 
