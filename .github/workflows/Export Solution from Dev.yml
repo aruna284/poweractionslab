@@ -102,14 +102,6 @@ jobs:
 
         tenant-id: ${{env.TENANT_ID}}
 
-    - name: Verify PAC installation
-
-      run: |
-
-        pac --version
-
-        pac auth list
-
  
 
     - name: export-solution action -unmanaged
