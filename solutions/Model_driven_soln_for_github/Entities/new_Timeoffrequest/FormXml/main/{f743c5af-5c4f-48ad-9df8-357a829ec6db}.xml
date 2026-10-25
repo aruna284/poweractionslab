@@ -1,0 +1,79 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<forms xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <systemform>
+    <formid>{f743c5af-5c4f-48ad-9df8-357a829ec6db}</formid>
+    <IntroducedVersion>1.0</IntroducedVersion>
+    <FormPresentation>1</FormPresentation>
+    <FormActivationState>1</FormActivationState>
+    <form>
+      <tabs>
+        <tab verticallayout="true" id="{2869512D-4DE1-4BAA-A45A-1E5EA683A465}" IsUserDefined="1">
+          <labels>
+            <label description="General" languagecode="1033" />
+          </labels>
+          <columns>
+            <column width="100%">
+              <sections>
+                <section showlabel="false" showbar="false" IsUserDefined="0" id="{C90B0283-D687-46F2-AA56-88FC5CFC2CA3}">
+                  <labels>
+                    <label description="General" languagecode="1033" />
+                  </labels>
+                  <rows>
+                    <row>
+                      <cell id="{76CE58A7-A4FB-4B1A-A2D8-80414CCFF5DD}">
+                        <labels>
+                          <label description="" languagecode="1033" />
+                        </labels>
+                        <control id="new_workdayid" classid="{4273EDBD-AC1D-40d3-9FB2-095C621B552D}" datafieldname="new_WorkdayID" />
+                      </cell>
+                    </row>
+                    <row>
+                      <cell id="{5F8C4FFF-676A-4749-905C-EBE359070D46}">
+                        <labels>
+                          <label description="Owner" languagecode="1033" />
+                        </labels>
+                        <control id="ownerid" classid="{270BD3DB-D9AF-4782-9025-509E298DEC0A}" datafieldname="ownerid" />
+                      </cell>
+                    </row>
+                    <row>
+                      <cell id="{7e5ccec2-b4f3-4519-a99e-5c8c811258fb}">
+                        <labels>
+                          <label description="Requestor name" languagecode="1033" />
+                        </labels>
+                        <control id="new_requestorname" classid="{4273edbd-ac1d-40d3-9fb2-095c621b552d}" datafieldname="new_requestorname" />
+                      </cell>
+                    </row>
+                    <row>
+                      <cell id="{d42960e3-d1d4-4075-bc94-a3f6cde9bb9f}">
+                        <labels>
+                          <label description="No of days" languagecode="1033" />
+                        </labels>
+                        <control id="new_noofdays" classid="{c6d124ca-7eda-4a60-aea9-7fb8d318b68f}" datafieldname="new_noofdays" />
+                      </cell>
+                    </row>
+                    <row>
+                      <cell id="{5caffa8f-254f-41c5-9354-5a7953d62310}">
+                        <labels>
+                          <label description="Approver" languagecode="1033" />
+                        </labels>
+                        <control id="new_approver" classid="{4273edbd-ac1d-40d3-9fb2-095c621b552d}" datafieldname="new_approver" />
+                      </cell>
+                    </row>
+                  </rows>
+                </section>
+              </sections>
+            </column>
+          </columns>
+        </tab>
+      </tabs>
+    </form>
+    <IsCustomizable>1</IsCustomizable>
+    <CanBeDeleted>1</CanBeDeleted>
+    <LocalizedNames>
+      <LocalizedName description="Information" languagecode="1033" />
+    </LocalizedNames>
+    <Descriptions>
+      <Description description="A form for this entity." languagecode="1033" />
+    </Descriptions>
+  </systemform>
+</forms>
