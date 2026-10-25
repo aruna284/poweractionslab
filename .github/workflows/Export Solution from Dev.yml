@@ -52,7 +52,7 @@ env:
 
   ENVIRONMENT_URL: 'https://org7f00f137.crm3.dynamics.com/'
 
-  CLIENT_ID: ‘aaef6536-5774-44a2-9a4d-9f28ace51d03’
+  CLIENT_ID: 'd2fa770c-78cb-4bfe-a63c-eae5961a5632'
 
   TENANT_ID: '3f1ffa42-f017-454c-8887-88a2dbf95dd5'
 
