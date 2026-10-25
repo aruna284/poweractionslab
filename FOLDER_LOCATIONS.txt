@@ -1,0 +1,294 @@
+================================================================================
+FOLDER LOCATIONS QUICK REFERENCE
+================================================================================
+
+🔴 IMPORTANT: Most folders are TEMPORARY and created on GitHub Actions Runner!
+   They do NOT persist in your repository.
+
+================================================================================
+PERMANENT FOLDERS (In Git Repository)
+================================================================================
+
+✅ solutions/
+   Location: Your repository root
+   Purpose: Stores unpacked solution files for version control
+   Path: /poweractionslab/solutions/Model_driven_soln_for_github/
+   Persists: YES - Committed to GitHub
+   
+   Example structure:
+   solutions/
+   └── Model_driven_soln_for_github/
+       ├── CanvasApps/
+       ├── Flows/
+       ├── Other/
+       │   └── Customizations.xml
+       ├── PluginAssemblies/
+       ├── Workflows/
+       └── ... (other components)
+
+   You can:
+   ✓ View on GitHub website
+   ✓ Clone locally
+   ✓ Review changes
+   ✓ Modify files offline
+
+================================================================================
+TEMPORARY FOLDERS (On GitHub Actions Runner Only)
+================================================================================
+
+These folders exist ONLY during workflow execution on the GitHub Actions runner.
+They are automatically created when the workflow runs and deleted when it finishes.
+They do NOT appear in your repository.
+
+❌ out/ship/
+   Location: GitHub Actions runner → out/ship/
+   Purpose: Staging area (currently unused in release workflow)
+   When Created: During workflow execution
+   Persists: NO - Deleted after job completes
+   Contains: (Empty/Reserved)
+
+❌ out/solutions/
+   Location: GitHub Actions runner → out/solutions/
+   Purpose: Staging folder for managed solution ZIP during packing
+   When Created: During Job 1 (convert-to-managed)
+   Persists: NO - Deleted after job completes
+   Contains: Model_driven_soln_for_github_managed.zip
+   
+   Used by:
+   1. pack-solution action → CREATES the managed ZIP
+   2. upload-artifact action → UPLOADS ZIP to GitHub Artifacts
+   3. Folder cleaned up → Job ends
+
+❌ out/release/
+   Location: GitHub Actions runner → out/release/
+   Purpose: Staging folder for deployed solution during deployment
+   When Created: During Job 2 & Job 3
+   Persists: NO - Deleted after job completes
+   Contains: Model_driven_soln_for_github_managed.zip (downloaded from artifacts)
+   
+   Used by:
+   1. download-artifact action → DOWNLOADS ZIP from artifacts
+   2. import-solution action → READS ZIP for deployment
+   3. Folder cleaned up → Job ends
+
+❌ out/exported/
+   Location: GitHub Actions runner → out/exported/
+   Purpose: Temporary storage for exported ZIPs from Power Platform (Export workflow)
+   When Created: During "Export Solution from Dev" workflow
+   Persists: NO - Deleted after workflow completes
+   Contains: 
+   - {solution_name}.zip (unmanaged)
+   - {solution_name}_managed.zip (managed backup)
+
+================================================================================
+GITHUB ARTIFACTS STORAGE
+================================================================================
+
+💾 managedSolutions
+   Location: GitHub's cloud servers (not your computer or repository)
+   Purpose: Transfer managed solution ZIP between workflow jobs
+   Type: Temporary storage for inter-job communication
+   Persists: ~90 days (default GitHub policy)
+   Access: Only during workflow runs (automatic)
+   Contains: Model_driven_soln_for_github_managed.zip
+   
+   Created by: Job 1 (convert-to-managed)
+   Downloaded by: Job 2 (release-to-uat) and Job 3 (release-to-prod)
+
+================================================================================
+FOLDER CREATION FLOW
+================================================================================
+
+EXPORT WORKFLOW:
+┌─────────────────────────────────┐
+│ Power Platform DEV Environment  │
+└─────────────┬───────────────────┘
+              │
+              ↓ [Export Action]
+        ┌──────────────────┐
+        │  out/exported/   │  ← TEMPORARY (GitHub Actions Runner)
+        │  ├── *.zip       │
+        │  └── *_managed.  │
+        │      zip         │
+        └────────┬─────────┘
+                 │
+                 ↓ [Unpack Action]
+        ┌──────────────────┐
+        │  out/solutions/  │  ← TEMPORARY (GitHub Actions Runner)
+        │  └── {name}/     │
+        │      ├── Forms/  │
+        │      ├── Flows/  │
+        │      └── Other/  │
+        └────────┬─────────┘
+                 │
+                 ↓ [Branch Action]
+        ┌──────────────────┐
+        │  solutions/      │  ← PERMANENT (Git Repository)
+        │  └── {name}/     │
+        │      ├── Forms/  │
+        │      ├── Flows/  │
+        │      └── Other/  │
+        └──────────────────┘
+                 │
+                 ↓ [Commit & Push]
+        ┌──────────────────┐
+        │ GitHub Repository│
+        │  solutions/      │
+        │  └── {name}/     │
+        └──────────────────┘
+
+RELEASE WORKFLOW:
+
+JOB 1 - Convert to Managed:
+┌──────────────────┐
+│  solutions/      │  ← PERMANENT (Git Repo)
+│  └── {name}/     │
+└────────┬─────────┘
+         │
+         ↓ [Pack-Solution Action]
+  ┌─────────────────┐
+  │  out/solutions/ │  ← TEMPORARY (Runner)
+  │  ├── *_managed. │
+  │  │   zip        │
+  └──────┬──────────┘
+         │
+         ↓ [Upload-Artifact Action]
+    ┌─────────────────┐
+    │   managedSol    │  ← GitHub Artifacts
+    │   utions        │     (Cloud Storage)
+    └─────────────────┘
+
+JOB 2 - Deploy to UAT:
+    ┌─────────────────┐
+    │   managedSol    │  ← GitHub Artifacts
+    │   utions        │
+    └────────┬────────┘
+             │
+             ↓ [Download-Artifact Action]
+      ┌──────────────┐
+      │ out/release/ │  ← TEMPORARY (Runner)
+      │ *_managed.   │
+      │ zip          │
+      └───────┬──────┘
+              │
+              ↓ [Import-Solution Action]
+      ┌──────────────────────┐
+      │ Power Platform UAT   │
+      │ Environment          │
+      │ (Solution Deployed)  │
+      └──────────────────────┘
+
+JOB 3 - Deploy to PROD:
+    ┌─────────────────┐
+    │   managedSol    │  ← GitHub Artifacts
+    │   utions        │
+    └────────┬────────┘
+             │
+             ↓ [Download-Artifact Action]
+      ┌──────────────┐
+      │ out/release/ │  ← TEMPORARY (Runner)
+      │ *_managed.   │
+      │ zip          │
+      └───────┬──────┘
+              │
+              ↓ [Import-Solution Action]
+      ┌──────────────────────┐
+      │ Power Platform PROD  │
+      │ Environment          │
+      │ (Solution Deployed)  │
+      └──────────────────────┘
+
+================================================================================
+KEY POINTS TO REMEMBER
+================================================================================
+
+1. PERMANENT LOCATION:
+   - solutions/ folder in your Git repository
+   - This is the ONLY folder that persists
+   - Everything else is temporary
+
+2. TEMPORARY LOCATIONS:
+   - out/ folders exist only during workflow
+   - Created by GitHub Actions runner
+   - Automatically deleted after job
+   - Cannot see or access them after workflow
+
+3. DATA TRANSFER BETWEEN JOBS:
+   - Uses GitHub Artifacts (managedSolutions)
+   - Not stored in your repository
+   - Automatically handled by workflow
+   - Expires after ~90 days
+
+4. WORKFLOW EXECUTION:
+   - Each job runs on a fresh GitHub runner
+   - Folders created as needed
+   - Cleaned up after job completes
+   - Next job downloads what it needs from artifacts
+
+5. NO ACTION NEEDED:
+   - Folders are created automatically
+   - Don't manually create out/ folders
+   - Actions handle everything
+   - Just provide inputs and monitor logs
+
+================================================================================
+WHERE TO LOOK FOR WHAT
+================================================================================
+
+Need to see solution files?
+→ Go to GitHub → Code → solutions/ folder
+
+Need to verify what was exported?
+→ Go to GitHub → Pull Requests → View the PR that was created
+
+Need to see workflow execution details?
+→ Go to GitHub → Actions → release-solution-to-prod → View run
+
+Need to download artifacts?
+→ Go to GitHub → Actions → workflow run → Artifacts section
+
+Need to check temporary folders?
+→ Can't! They only exist during workflow execution
+→ Check workflow logs instead (GitHub Actions UI)
+
+================================================================================
+CONFIGURATION
+================================================================================
+
+All folder paths are customizable via workflow inputs:
+
+solution_source_folder (default: solutions/)
+  ↓
+  Where unpacked solution files come from (GIT)
+
+solution_outbound_folder (default: out/solutions/)
+  ↓
+  Where managed ZIP is created during packing (RUNNER - TEMPORARY)
+
+solution_release_folder (default: out/release/)
+  ↓
+  Where ZIP is downloaded before deployment (RUNNER - TEMPORARY)
+
+solution_shipping_folder (default: out/ship/)
+  ↓
+  Reserved for future use (currently unused)
+
+RECOMMENDATION: Keep default paths - they follow best practices!
+
+================================================================================
+SUMMARY
+================================================================================
+
+Permanent (In Your Repository):
+  ✅ solutions/ - Your version-controlled solution files
+
+Temporary (On GitHub Actions Runner):
+  ❌ out/ship/ - Staging (unused)
+  ❌ out/solutions/ - Packing staging
+  ❌ out/release/ - Deployment staging
+  ❌ out/exported/ - Export staging (Export workflow only)
+
+Cloud Storage (GitHub Artifacts):
+  💾 managedSolutions - Temporary inter-job transfer (~90 days)
+
+================================================================================
