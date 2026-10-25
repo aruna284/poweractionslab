@@ -66,6 +66,12 @@ jobs:
 
     # or you can say runs-on: ubuntu-latest
 
+    permissions:
+
+      id-token: write
+
+      contents: read
+
     env:
 
       RUNNER_DEBUG: 1
